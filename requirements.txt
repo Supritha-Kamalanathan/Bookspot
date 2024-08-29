@@ -1,0 +1,7 @@
+Flask==2.3.2
+transformers==4.30.0
+llama-cpp-python==0.1.60
+psycopg2-binary==2.9.6
+torch==2.0.1
+numpy==1.25.2
+streamlit==1.33.0
