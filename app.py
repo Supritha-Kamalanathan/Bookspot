@@ -52,22 +52,31 @@ def compute_matches(query_str, top_k):
     cursor.execute("SELECT b_id, chunk_id, embeddings FROM chunks WHERE embeddings IS NOT NULL")
     rows = cursor.fetchall()
 
+    book_ids = []
+    chunk_ids = []
+    chunk_embeddings = []
+
     for book_id, chunk_id, chunk_embedding in rows:
-        chunk_embedding_array = np.array(chunk_embedding)
+        book_ids.append(book_id)
+        chunk_ids.append(chunk_id)
+        chunk_embeddings.append(chunk_embedding)
 
-        # Normalizing embeddings to unit vectors for cosine similarity calculation
-        norm_query = np.linalg.norm(query_str_embedding)
-        norm_chunk = np.linalg.norm(chunk_embedding_array)
+    # Convert list of chunk embeddings to numpy array for batch processing
+    chunk_embeddings_array = np.array(chunk_embeddings)
 
-        if norm_query == 0 or norm_chunk == 0:
-            score = 0
-        else:
-            score = np.dot(chunk_embedding_array, query_str_embedding) / (norm_query * norm_chunk)
+    # Normalize the query and chunk embeddings for cosine similarity calculation
+    norm_query = np.linalg.norm(query_str_embedding)
+    norm_chunk = np.linalg.norm(chunk_embeddings_array, axis = 1)
 
-        scores.append((book_id, chunk_id, score))
+    # Prevent division by zero
+    valid_norms = np.where(norm_query != 0 and norm_chunk != 0)
 
-    sorted_scores = sorted(scores, key = lambda item: item[2], reverse = True)[:top_k]
-    top_results = [(book_id, chunk_id, score) for (book_id, chunk_id, score) in sorted_scores]
+    # Compute cosine similarities in a batch
+    cosine_similarities = np.zeros(len(chunk_embeddings_array))
+    cosine_similarities[valid_norms] = np.dot(chunk_embeddings_array[valid_norms], query_str_embedding) / (norm_chunk[valid_norms] * norm_query)
+
+    scores = [(book_ids[i], chunk_ids[i], cosine_similarities[i]) for i in range(len(book_ids))]
+    top_results = sorted(scores, key = lambda item: item[2], reverse = True)[:top_k]
 
     return top_results
 
